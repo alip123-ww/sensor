@@ -2,9 +2,9 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Mage God: Hybrid Input</title>
+    <title>Mage God: Particle Overload</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; cursor: none; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
         
         /* UI LAYER */
         #ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 20; }
@@ -19,12 +19,9 @@
             padding: 20px 60px; font-size: 24px; font-weight: 900; color: #00ffff;
             background: transparent; border: 3px solid #00ffff; letter-spacing: 4px;
             cursor: pointer; box-shadow: 0 0 30px #00ffff; transition: 0.2s;
-            text-transform: uppercase; margin-bottom: 20px;
+            text-transform: uppercase;
         }
         #btn-start:hover { background: #00ffff; color: #000; box-shadow: 0 0 60px #00ffff; }
-        
-        #status-msg { color: #ff0055; font-weight: bold; margin-top: 10px; display: none; }
-        .controls-hint { color: #aaa; font-size: 12px; margin-top: 5px; }
 
         /* HUD */
         #gesture-box {
@@ -48,9 +45,8 @@
         .skill-card.active { opacity: 1; transform: scale(1.1) translateY(-10px); border-color: white; box-shadow: 0 0 25px currentColor; }
         .icon { font-size: 36px; margin-bottom: 5px; }
         .label { font-size: 10px; font-weight: bold; text-transform: uppercase; color: #fff; }
-        .key-hint { position: absolute; top: 5px; left: 5px; font-size: 10px; color: #888; }
 
-        /* THEMES */
+        /* COLOR THEMES */
         .theme-fire { color: #ff4400; }
         .theme-thunder { color: #aa00ff; }
         .theme-ice { color: #00ffff; }
@@ -61,16 +57,11 @@
         #video-debug {
             position: absolute; bottom: 20px; right: 20px; width: 160px; height: 120px;
             border: 2px solid #333; opacity: 0.6; transform: scaleX(-1); border-radius: 8px; z-index: 10;
-            display: none; /* Hidden by default */
         }
         video { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; }
 
-        /* CROSSHAIR (Mouse Mode) */
-        #crosshair {
-            position: absolute; width: 40px; height: 40px; border: 2px solid rgba(255,255,255,0.5);
-            border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; z-index: 50;
-            display: none;
-        }
+        /* LOADING */
+        #loader-text { color: white; margin-top: 20px; font-size: 14px; opacity: 0.7; }
     </style>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -86,41 +77,31 @@
 
     <div id="start-overlay">
         <h1 style="color:white; margin-bottom: 10px; font-size: 40px;">ELEMENTAL GOD</h1>
-        <button id="btn-start" onclick="initSystem()">START SYSTEM</button>
-        <div id="status-msg"></div>
-        <div class="controls-hint">Jika kamera error, otomatis pindah ke Mouse Mode.</div>
-        <div class="controls-hint" style="margin-top: 20px;">
-            [1] Api | [2] Petir | [3] Es | [4] Void | [5] Solar
-        </div>
+        <button id="btn-start" onclick="initSystem()">INITIALIZE</button>
+        <div id="loader-text">Menunggu izin kamera...</div>
     </div>
 
     <div id="ui">
-        <div id="crosshair"></div>
         <div id="gesture-box"><div id="gesture-name">SYSTEM READY</div></div>
         
         <div id="skill-bar">
-            <div id="card-fire" class="skill-card theme-fire active">
-                <span class="key-hint">1</span>
+            <div id="card-fire" class="skill-card theme-fire">
                 <div class="icon">✊</div>
                 <div class="label">Fire</div>
             </div>
             <div id="card-thunder" class="skill-card theme-thunder">
-                <span class="key-hint">2</span>
                 <div class="icon">☝️</div>
-                <div class="label">Bolt</div>
+                <div class="label">Thunder</div>
             </div>
             <div id="card-ice" class="skill-card theme-ice">
-                <span class="key-hint">3</span>
                 <div class="icon">🖐️</div>
                 <div class="label">Ice</div>
             </div>
             <div id="card-void" class="skill-card theme-void">
-                <span class="key-hint">4</span>
                 <div class="icon">✌️</div>
                 <div class="label">Void</div>
             </div>
             <div id="card-solar" class="skill-card theme-solar">
-                <span class="key-hint">5</span>
                 <div class="icon">🤟</div>
                 <div class="label">Solar</div>
             </div>
@@ -130,14 +111,15 @@
     <div id="video-debug"><video id="input_video" playsinline></video></div>
 
     <script>
-        // --- 1. PROCEDURAL TEXTURES ---
+        // --- 1. PROCEDURAL TEXTURE GENERATOR (ANTI STUCK) ---
+        // Membuat tekstur cahaya halus secara coding, bukan load gambar
         function createGlowTexture(colorStr) {
             const canvas = document.createElement('canvas');
             canvas.width = 64; canvas.height = 64;
             const ctx = canvas.getContext('2d');
             const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
             grad.addColorStop(0, 'rgba(255,255,255,1)');
-            grad.addColorStop(0.3, colorStr);
+            grad.addColorStop(0.3, colorStr); // Warna inti
             grad.addColorStop(1, 'rgba(0,0,0,0)');
             ctx.fillStyle = grad;
             ctx.fillRect(0,0,64,64);
@@ -150,7 +132,7 @@
         const texSolar = createGlowTexture('rgba(255, 200, 0, 0.8)');
         const texCore = createGlowTexture('rgba(255,255,255,0.8)');
 
-        // --- 2. AUDIO SYNTH ---
+        // --- 2. AUDIO SYNTHESIZER (SOUND EFFECTS) ---
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         function playSound(type) {
             if(audioCtx.state === 'suspended') audioCtx.resume();
@@ -162,17 +144,18 @@
             if (type === 'FIRE') {
                 osc.type = 'triangle';
                 osc.frequency.setValueAtTime(100, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + 0.3);
-                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                osc.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + 0.5);
+                gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.5);
             } else if (type === 'THUNDER') {
                 osc.type = 'sawtooth';
                 osc.frequency.setValueAtTime(800, audioCtx.currentTime);
                 osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.2);
-                gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.2);
             }
-            osc.start(); osc.stop(audioCtx.currentTime + 0.3);
         }
 
         // --- 3. THREE.JS ENGINE ---
@@ -187,11 +170,13 @@
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
         document.body.appendChild(renderer.domElement);
 
-        // BLOOM
+        // BLOOM POST-PROCESSING (KUNCI VISUAL BAGUS)
         const composer = new THREE.EffectComposer(renderer);
         composer.addPass(new THREE.RenderPass(scene, camera));
         const bloom = new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
-        bloom.strength = 2.5; bloom.radius = 0.5; bloom.threshold = 0;
+        bloom.strength = 2.5; // Glow intensity tinggi
+        bloom.radius = 0.5;
+        bloom.threshold = 0;
         composer.addPass(bloom);
 
         // GRID & LIGHT
@@ -202,26 +187,25 @@
 
         // --- 4. GAME OBJECTS ---
         let handPos = new THREE.Vector3(0,0,3);
-        let gesture = 'FIST'; // Default untuk mouse mode
-        let activeSkill = 1;  // 1-5
+        let gesture = 'NONE';
         let projectiles = [];
         let particles = [];
         let enemies = [];
         let isRunning = false;
-        let isMouseMode = false;
         let frameCount = 0;
         let shakeIntensity = 0;
 
-        // Visual Tangan
+        // Visual Tangan (Energy Core)
         const handOrb = new THREE.Sprite(new THREE.SpriteMaterial({ map: texCore, color: 0xffffff }));
         handOrb.scale.set(0.5, 0.5, 1);
         scene.add(handOrb);
 
-        // --- 5. CLASSES ---
+        // --- 5. PARTICLE SYSTEM (PHYSICS BASED) ---
         class Particle {
             constructor(pos, type) {
                 this.type = type;
                 let mat, color, size;
+                
                 if (type === 'FIRE') { mat = texFire; color = 0xffaa00; size = Math.random()*0.8+0.5; }
                 if (type === 'ICE') { mat = texIce; color = 0x00ffff; size = Math.random()*0.4+0.2; }
                 if (type === 'VOID') { mat = texVoid; color = 0xaa00ff; size = Math.random()*0.6+0.4; }
@@ -234,9 +218,10 @@
                 this.sprite.position.copy(pos);
                 this.sprite.scale.set(size, size, 1);
                 
+                // Physics Init
                 this.vel = new THREE.Vector3((Math.random()-0.5), (Math.random()-0.5), (Math.random()-0.5));
-                if (type === 'FIRE') this.vel.multiplyScalar(0.2).y += 0.05; 
-                if (type === 'ICE') this.vel.multiplyScalar(0.3).y -= 0.05;
+                if (type === 'FIRE') this.vel.multiplyScalar(0.2).y += 0.05; // Api naik
+                if (type === 'ICE') this.vel.multiplyScalar(0.3).y -= 0.05; // Es jatuh
                 if (type === 'EXPLOSION') this.vel.multiplyScalar(0.5); 
                 if (type === 'SOLAR') this.vel.multiplyScalar(0.1);
 
@@ -244,51 +229,64 @@
                 this.decay = 0.02 + Math.random()*0.03;
                 scene.add(this.sprite);
             }
+
             update() {
                 this.life -= this.decay;
                 this.sprite.position.add(this.vel);
                 this.sprite.material.opacity = this.life;
-                this.sprite.scale.multiplyScalar(0.95);
+                this.sprite.scale.multiplyScalar(0.95); // Shrink
+                
+                if (this.type === 'FIRE') {
+                    this.sprite.material.rotation += 0.1; // Api berputar dikit
+                    this.sprite.material.color.setHSL(0.05 + this.life*0.1, 1, 0.5); // Merah ke Kuning
+                }
+
                 if (this.life <= 0) { scene.remove(this.sprite); return false; }
                 return true;
             }
         }
 
+        // --- 6. SKILL & ENEMY CLASSES ---
         class Projectile {
             constructor(type, pos) {
                 this.type = type;
                 this.active = true;
                 this.pos = pos.clone();
-                this.vel = new THREE.Vector3(0,0,-0.8);
+                this.vel = new THREE.Vector3(0,0,-0.8); // Default speed
 
+                // Visual Core Mesh (Biar keliatan solid)
                 if (type === 'FIRE') {
                     this.mesh = new THREE.Mesh(new THREE.SphereGeometry(0.5,8,8), new THREE.MeshBasicMaterial({color:0xffaa00}));
-                    this.vel.z = -1.0;
+                    this.vel.z = -1.0; // Cepat
                 } 
                 else if (type === 'ICE') {
                     this.mesh = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.8, 4), new THREE.MeshBasicMaterial({color:0x00ffff}));
                     this.mesh.rotation.x = -Math.PI/2;
-                    this.vel.x = (Math.random()-0.5)*0.5; 
+                    this.vel.x = (Math.random()-0.5)*0.5; // Spread
                     this.vel.y = (Math.random()-0.5)*0.5;
                 }
                 else if (type === 'VOID') {
                     this.mesh = new THREE.Mesh(new THREE.SphereGeometry(1.5,16,16), new THREE.MeshBasicMaterial({color:0x000000}));
                     const rim = new THREE.Mesh(new THREE.SphereGeometry(1.6,16,16), new THREE.MeshBasicMaterial({color:0xaa00ff, wireframe:true, transparent:true, opacity:0.5}));
                     this.mesh.add(rim);
-                    this.vel.z = -0.3;
+                    this.vel.z = -0.3; // Lambat
                 }
 
                 this.mesh.position.copy(this.pos);
                 scene.add(this.mesh);
             }
+
             update() {
                 this.pos.add(this.vel);
                 this.mesh.position.copy(this.pos);
-                
-                if (this.type === 'FIRE') for(let i=0; i<2; i++) particles.push(new Particle(this.pos, 'FIRE'));
-                
+
+                // Trail Particles (Ekor partikel)
+                if (this.type === 'FIRE') {
+                    for(let i=0; i<2; i++) particles.push(new Particle(this.pos, 'FIRE'));
+                }
                 if (this.type === 'VOID') {
                     this.mesh.rotation.z += 0.1;
+                    // Sedot Musuh
                     enemies.forEach(e => {
                         if(e.mesh.position.distanceTo(this.pos) < 10) {
                             const dir = new THREE.Vector3().subVectors(this.pos, e.mesh.position).normalize();
@@ -297,6 +295,7 @@
                         }
                     });
                 }
+
                 if (this.pos.z < -100) this.kill();
             }
             kill() { this.active = false; scene.remove(this.mesh); }
@@ -304,11 +303,15 @@
 
         class Enemy {
             constructor() {
+                // High Visibility Neon Material
                 const geo = new THREE.IcosahedronGeometry(1.2, 0);
                 const mat = new THREE.MeshBasicMaterial({ color: 0xff0000, wireframe: true });
+                const coreMat = new THREE.MeshBasicMaterial({ color: 0x550000 });
+                
                 this.mesh = new THREE.Group();
                 this.mesh.add(new THREE.Mesh(geo, mat));
-                this.mesh.add(new THREE.Mesh(new THREE.IcosahedronGeometry(1,0), new THREE.MeshBasicMaterial({ color: 0x550000 })));
+                this.mesh.add(new THREE.Mesh(new THREE.IcosahedronGeometry(1,0), coreMat));
+
                 this.mesh.position.set((Math.random()-0.5)*30, (Math.random()-0.5)*10, -60);
                 scene.add(this.mesh);
                 this.speed = 0.1 + Math.random()*0.2;
@@ -319,74 +322,71 @@
                 if(this.mesh.position.z > 2) { shakeCamera(0.5); this.kill(); }
             }
             hit() {
+                // Ledakan Partikel
                 for(let i=0; i<15; i++) particles.push(new Particle(this.mesh.position, 'EXPLOSION'));
                 this.kill();
             }
             kill() { scene.remove(this.mesh); enemies.splice(enemies.indexOf(this), 1); }
         }
 
-        // --- 6. LOGIC & SKILL ---
+        // --- 7. SKILL LOGIC ---
         function fireSkill() {
             if (!isRunning) return;
-            
-            // Logic Trigger: Kalau Mouse Mode (Klik) atau Camera Mode (Gesture)
-            let trigger = false;
-            
-            if (isMouseMode && window.isMouseDown) trigger = true;
-            else if (!isMouseMode && gesture !== 'NONE') trigger = true;
 
-            if (!trigger) {
-                if(window.solarBeam) window.solarBeam.visible = false;
-                return;
-            }
-
-            // Check Active Skill (Dari Gesture atau Keyboard)
-            // Fire
-            if ((gesture === 'FIST' || activeSkill === 1) && frameCount % 5 === 0) {
+            // 1. FIRE (KEPALAN) - Stream rapi
+            if (gesture === 'FIST' && frameCount % 5 === 0) {
                 projectiles.push(new Projectile('FIRE', handPos));
                 shakeCamera(0.05);
                 playSound('FIRE');
             }
-            // Thunder
-            else if (gesture === 'INDEX' || activeSkill === 2) {
-                castLightning();
-            }
-            // Ice
-            else if ((gesture === 'OPEN' || activeSkill === 3) && frameCount % 20 === 0) {
+            // 2. ICE (BUKA TANGAN) - Shotgun
+            else if (gesture === 'OPEN' && frameCount % 20 === 0) {
                 for(let i=0; i<5; i++) projectiles.push(new Projectile('ICE', handPos));
                 shakeCamera(0.1);
             }
-            // Void
-            else if ((gesture === 'VICTORY' || activeSkill === 4) && frameCount % 50 === 0) {
+            // 3. THUNDER (TELUNJUK) - Instant Beam
+            else if (gesture === 'INDEX') {
+                castLightning();
+            }
+            // 4. VOID (PEACE) - Orb
+            else if (gesture === 'VICTORY' && frameCount % 50 === 0) {
                 projectiles.push(new Projectile('VOID', handPos));
                 shakeCamera(0.3);
             }
-            // Solar
-            else if (gesture === 'ROCK' || activeSkill === 5) {
+            // 5. SOLAR (ROCK) - Giant Laser
+            else if (gesture === 'ROCK') {
                 castSolarBeam();
             }
         }
 
         function castLightning() {
+            // Garis Zigzag Random
             const points = [];
             let curr = handPos.clone();
             const target = new THREE.Vector3(0,0,-50);
-            for(let i=0; i<=10; i++) {
+            const steps = 10;
+            
+            for(let i=0; i<=steps; i++) {
                 points.push(curr.clone());
-                curr.lerp(target, 0.1);
+                curr.lerp(target, 1/steps);
                 curr.x += (Math.random()-0.5)*2;
                 curr.y += (Math.random()-0.5)*2;
             }
+            
             const geo = new THREE.BufferGeometry().setFromPoints(points);
             const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0xaa00ff }));
             scene.add(line);
             setTimeout(()=>scene.remove(line), 50);
+            
+            // Hit Enemy di tengah
             enemies.forEach(e => { if(Math.abs(e.mesh.position.x) < 5) e.hit(); });
+            
             if(frameCount % 10 === 0) playSound('THUNDER');
             shakeCamera(0.1);
         }
 
         function castSolarBeam() {
+            // Silinder Kuning Besar
             if(!window.solarBeam) {
                 const geo = new THREE.CylinderGeometry(0.5, 2, 50, 8, 1, true);
                 geo.rotateX(-Math.PI/2);
@@ -395,100 +395,58 @@
                 window.solarBeam = new THREE.Mesh(geo, mat);
                 scene.add(window.solarBeam);
             }
+            
             window.solarBeam.position.copy(handPos);
             window.solarBeam.visible = true;
-            window.solarBeam.material.opacity = 0.5 + Math.sin(frameCount*0.5)*0.2;
+            window.solarBeam.material.opacity = 0.5 + Math.sin(frameCount*0.5)*0.2; // Pulsing
+            
+            // Partikel di sekitar beam
             particles.push(new Particle(handPos, 'SOLAR'));
-            enemies.forEach(e => { if(Math.abs(e.mesh.position.x - handPos.x) < 2) e.hit(); });
+            
+            // Hit Logic
+            enemies.forEach(e => {
+                if(Math.abs(e.mesh.position.x - handPos.x) < 2) e.hit();
+            });
             shakeCamera(0.05);
         }
 
         function shakeCamera(amount) { shakeIntensity = amount; }
 
-        // --- 7. INPUT HANDLING ---
-        
-        // Setup MediaPipe
+        // --- 8. SYSTEM INIT (MEDIA PIPE) ---
         async function initSystem() {
             const btn = document.getElementById('btn-start');
-            btn.innerText = "MENGHUBUNGKAN...";
-            btn.disabled = true;
-
+            btn.innerText = "LOADING AI...";
+            
             const videoElement = document.getElementById('input_video');
             const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
             
-            hands.setOptions({ maxNumHands: 1, modelComplexity: 0, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+            hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
             hands.onResults(onResults);
 
             try {
-                // Timer Force Fallback jika kamera kelamaan/error
-                const fallbackTimer = setTimeout(() => {
-                    if(!isRunning) activateMouseMode("Kamera tidak merespon (Timeout). Beralih ke Mouse Mode.");
-                }, 8000);
-
                 const cameraUtils = new Camera(videoElement, {
                     onFrame: async () => { await hands.send({image: videoElement}); },
                     width: 640, height: 480
                 });
-                
                 await cameraUtils.start();
-                clearTimeout(fallbackTimer);
                 
                 // Hide Overlay
                 document.getElementById('start-overlay').style.display = 'none';
-                document.getElementById('video-debug').style.display = 'block';
                 isRunning = true;
                 animate();
-
             } catch (e) {
-                activateMouseMode("Akses Kamera Ditolak Browser. Beralih ke Mouse Mode.");
+                alert("Error Camera: Pastikan buka di Live Server / HTTPS!");
             }
-        }
-
-        function activateMouseMode(reason) {
-            isMouseMode = true;
-            isRunning = true;
-            document.getElementById('start-overlay').style.display = 'none';
-            document.getElementById('gesture-name').innerText = "MOUSE MODE";
-            document.getElementById('crosshair').style.display = 'block';
-            
-            // Show Alert
-            const msg = document.createElement('div');
-            msg.innerText = "⚠️ " + reason;
-            msg.style.cssText = "position:absolute; top:10px; left:50%; transform:translateX(-50%); color:red; font-weight:bold; background:rgba(0,0,0,0.8); padding:10px; border:1px solid red;";
-            document.body.appendChild(msg);
-            setTimeout(() => msg.remove(), 5000);
-
-            // Add Listeners
-            window.addEventListener('mousemove', (e) => {
-                // Map mouse to 3D world
-                const x = (e.clientX / window.innerWidth) * 2 - 1;
-                const y = -(e.clientY / window.innerHeight) * 2 + 1;
-                handPos.set(x * 15, y * 10, 2);
-                handOrb.position.copy(handPos);
-                
-                const ch = document.getElementById('crosshair');
-                ch.style.left = e.clientX + 'px';
-                ch.style.top = e.clientY + 'px';
-            });
-
-            window.addEventListener('mousedown', () => window.isMouseDown = true);
-            window.addEventListener('mouseup', () => window.isMouseDown = false);
-            window.addEventListener('keydown', (e) => {
-                if(e.key >= '1' && e.key <= '5') {
-                    activeSkill = parseInt(e.key);
-                    updateUI(null);
-                }
-            });
-            
-            animate();
         }
 
         function onResults(results) {
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
                 const lm = results.multiHandLandmarks[0];
+                // Map coordinates
                 handPos.set((1 - lm[9].x - 0.5) * 15, (1 - lm[9].y - 0.5) * 10, 2);
                 handOrb.position.copy(handPos);
 
+                // Gesture Logic
                 const indexUp = lm[8].y < lm[6].y;
                 const midUp = lm[12].y < lm[10].y;
                 const ringUp = lm[16].y < lm[14].y;
@@ -503,38 +461,43 @@
                 else gesture = 'NONE';
             } else {
                 gesture = 'NONE';
+                if(window.solarBeam) window.solarBeam.visible = false;
             }
-            updateUI(gesture);
+            updateUI();
         }
 
-        function updateUI(g) {
-            // Update Gesture Text / Active Skill
-            const current = isMouseMode ? activeSkill : g;
-            
+        function updateUI() {
+            document.getElementById('gesture-name').innerText = gesture;
             document.querySelectorAll('.skill-card').forEach(c => c.classList.remove('active'));
+            if(gesture === 'FIST') document.getElementById('card-fire').classList.add('active');
+            if(gesture === 'INDEX') document.getElementById('card-thunder').classList.add('active');
+            if(gesture === 'OPEN') document.getElementById('card-ice').classList.add('active');
+            if(gesture === 'VICTORY') document.getElementById('card-void').classList.add('active');
+            if(gesture === 'ROCK') document.getElementById('card-solar').classList.add('active');
             
-            if(g === 'FIST' || activeSkill === 1) document.getElementById('card-fire').classList.add('active');
-            if(g === 'INDEX' || activeSkill === 2) document.getElementById('card-thunder').classList.add('active');
-            if(g === 'OPEN' || activeSkill === 3) document.getElementById('card-ice').classList.add('active');
-            if(g === 'VICTORY' || activeSkill === 4) document.getElementById('card-void').classList.add('active');
-            if(g === 'ROCK' || activeSkill === 5) document.getElementById('card-solar').classList.add('active');
-
-            if (isMouseMode) document.getElementById('gesture-name').innerText = "SKILL: " + activeSkill;
-            else document.getElementById('gesture-name').innerText = g;
+            if(gesture !== 'ROCK' && window.solarBeam) window.solarBeam.visible = false;
         }
 
-        // --- 8. LOOP ---
+        // --- 9. MAIN LOOP ---
         function animate() {
             requestAnimationFrame(animate);
             if(!isRunning) return;
             frameCount++;
 
+            // Spawn Enemy
             if(Math.random() < 0.04) new Enemy();
+
+            // Run Physics
             fireSkill();
             projectiles.forEach(p => p.update());
             enemies.forEach(e => e.update());
-            for(let i=particles.length-1; i>=0; i--) if(!particles[i].update()) particles.splice(i, 1);
             
+            // Particle Cleanup
+            for(let i=particles.length-1; i>=0; i--) {
+                if(!particles[i].update()) particles.splice(i, 1);
+            }
+            
+            // Projectile vs Enemy collision
             projectiles.forEach(p => {
                 if(!p.active) return;
                 enemies.forEach(e => {
@@ -545,6 +508,7 @@
                 });
             });
 
+            // Camera Shake
             if(shakeIntensity > 0) {
                 camera.position.x = (Math.random()-0.5) * shakeIntensity;
                 camera.position.y = 1 + (Math.random()-0.5) * shakeIntensity;
