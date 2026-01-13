@@ -2,66 +2,58 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Mage God: Particle Overload</title>
+    <title>Mage God: Camera Fix</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Courier New', Courier, monospace; }
         
-        /* UI LAYER */
-        #ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 20; }
+        /* UI UTAMA */
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 20; }
         
-        /* START SCREEN */
-        #start-overlay {
+        /* TOMBOL MULAI (PENTING BUAT IZIN KAMERA) */
+        #start-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.95); display: flex; flex-direction: column;
-            justify-content: center; align-items: center; z-index: 100; pointer-events: auto;
+            background: rgba(0,0,0,0.9); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 50;
+            pointer-events: auto; /* Bisa diklik */
         }
-        #btn-start {
-            padding: 20px 60px; font-size: 24px; font-weight: 900; color: #00ffff;
-            background: transparent; border: 3px solid #00ffff; letter-spacing: 4px;
-            cursor: pointer; box-shadow: 0 0 30px #00ffff; transition: 0.2s;
-            text-transform: uppercase;
-        }
-        #btn-start:hover { background: #00ffff; color: #000; box-shadow: 0 0 60px #00ffff; }
-
-        /* HUD */
-        #gesture-box {
-            position: absolute; bottom: 150px; left: 50%; transform: translateX(-50%);
-            text-align: center;
-        }
-        #gesture-name {
-            font-size: 40px; font-weight: 900; color: yellow; text-shadow: 0 0 20px orange;
+        #start-btn {
+            padding: 20px 50px; font-size: 24px; font-weight: bold; color: #00ffff;
+            background: transparent; border: 2px solid #00ffff; border-radius: 10px;
+            cursor: pointer; box-shadow: 0 0 20px #00ffff; transition: 0.2s;
             text-transform: uppercase; letter-spacing: 2px;
         }
+        #start-btn:hover { background: #00ffff; color: #000; }
+        #error-msg { margin-top: 20px; color: red; font-size: 16px; display: none; }
 
-        #skill-bar {
+        /* HUD */
+        #gesture-display {
+            position: absolute; bottom: 120px; left: 50%; transform: translateX(-50%);
+            font-size: 32px; font-weight: bold; color: yellow; text-shadow: 0 0 10px orange;
+        }
+        #skill-icons {
             position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
-            display: flex; gap: 15px;
+            display: flex; gap: 20px;
         }
-        .skill-card {
-            width: 80px; height: 100px; background: rgba(0,0,0,0.7); border: 2px solid #333;
-            border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center;
-            transition: 0.2s; opacity: 0.5;
+        .icon {
+            width: 60px; height: 60px; border: 1px solid #555; border-radius: 50%;
+            display: flex; justify-content: center; align-items: center; font-size: 24px;
+            background: rgba(0,0,0,0.5); color: #555; transition: 0.2s;
         }
-        .skill-card.active { opacity: 1; transform: scale(1.1) translateY(-10px); border-color: white; box-shadow: 0 0 25px currentColor; }
-        .icon { font-size: 36px; margin-bottom: 5px; }
-        .label { font-size: 10px; font-weight: bold; text-transform: uppercase; color: #fff; }
+        .icon.active { transform: scale(1.2); border-color: white; color: white; box-shadow: 0 0 15px white; }
+        
+        /* DETECT STATUS COLORS */
+        #s-fire.active { background: #551100; box-shadow: 0 0 20px #ff5500; }
+        #s-thunder.active { background: #220033; box-shadow: 0 0 20px #aa00ff; }
+        #s-ice.active { background: #002233; box-shadow: 0 0 20px #00ffff; }
+        #s-void.active { background: #111; box-shadow: 0 0 20px #ffffff; }
+        #s-solar.active { background: #332200; box-shadow: 0 0 20px #ffdd00; }
 
-        /* COLOR THEMES */
-        .theme-fire { color: #ff4400; }
-        .theme-thunder { color: #aa00ff; }
-        .theme-ice { color: #00ffff; }
-        .theme-void { color: #ffffff; }
-        .theme-solar { color: #ffcc00; }
-
-        /* DEBUG VIDEO */
-        #video-debug {
-            position: absolute; bottom: 20px; right: 20px; width: 160px; height: 120px;
-            border: 2px solid #333; opacity: 0.6; transform: scaleX(-1); border-radius: 8px; z-index: 10;
+        #video-preview {
+            position: absolute; bottom: 10px; right: 10px; width: 160px; height: 120px;
+            border: 1px solid cyan; opacity: 0.5; z-index: 5; transform: scaleX(-1);
         }
-        video { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; }
+        video { width: 100%; height: 100%; object-fit: cover; }
 
-        /* LOADING */
-        #loader-text { color: white; margin-top: 20px; font-size: 14px; opacity: 0.7; }
     </style>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -75,445 +67,354 @@
 </head>
 <body>
 
-    <div id="start-overlay">
-        <h1 style="color:white; margin-bottom: 10px; font-size: 40px;">ELEMENTAL GOD</h1>
-        <button id="btn-start" onclick="initSystem()">INITIALIZE</button>
-        <div id="loader-text">Menunggu izin kamera...</div>
+    <div id="start-screen">
+        <h1>ELEMENTAL HAND TRACKING</h1>
+        <button id="start-btn" onclick="startGame()">AKTIFKAN KAMERA & MULAI</button>
+        <div id="error-msg"></div>
+        <p style="color: #888; margin-top: 20px; font-size: 12px;">Pastikan cahaya ruangan cukup terang</p>
     </div>
 
-    <div id="ui">
-        <div id="gesture-box"><div id="gesture-name">SYSTEM READY</div></div>
-        
-        <div id="skill-bar">
-            <div id="card-fire" class="skill-card theme-fire">
-                <div class="icon">✊</div>
-                <div class="label">Fire</div>
-            </div>
-            <div id="card-thunder" class="skill-card theme-thunder">
-                <div class="icon">☝️</div>
-                <div class="label">Thunder</div>
-            </div>
-            <div id="card-ice" class="skill-card theme-ice">
-                <div class="icon">🖐️</div>
-                <div class="label">Ice</div>
-            </div>
-            <div id="card-void" class="skill-card theme-void">
-                <div class="icon">✌️</div>
-                <div class="label">Void</div>
-            </div>
-            <div id="card-solar" class="skill-card theme-solar">
-                <div class="icon">🤟</div>
-                <div class="label">Solar</div>
-            </div>
+    <div id="ui-layer">
+        <div id="gesture-display">MENUNGGU...</div>
+        <div id="skill-icons">
+            <div id="s-fire" class="icon">✊<br><small>Fire</small></div>
+            <div id="s-thunder" class="icon">☝️<br><small>Bolt</small></div>
+            <div id="s-ice" class="icon">🖐️<br><small>Ice</small></div>
+            <div id="s-void" class="icon">✌️<br><small>Void</small></div>
+            <div id="s-solar" class="icon">🤟<br><small>Sun</small></div>
         </div>
     </div>
 
-    <div id="video-debug"><video id="input_video" playsinline></video></div>
+    <div id="video-preview"><video id="input_video" playsinline></video></div>
 
     <script>
-        // --- 1. PROCEDURAL TEXTURE GENERATOR (ANTI STUCK) ---
-        // Membuat tekstur cahaya halus secara coding, bukan load gambar
-        function createGlowTexture(colorStr) {
-            const canvas = document.createElement('canvas');
-            canvas.width = 64; canvas.height = 64;
-            const ctx = canvas.getContext('2d');
-            const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-            grad.addColorStop(0, 'rgba(255,255,255,1)');
-            grad.addColorStop(0.3, colorStr); // Warna inti
-            grad.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = grad;
-            ctx.fillRect(0,0,64,64);
-            return new THREE.CanvasTexture(canvas);
-        }
-
-        const texFire = createGlowTexture('rgba(255, 100, 0, 0.5)');
-        const texIce = createGlowTexture('rgba(0, 255, 255, 0.5)');
-        const texVoid = createGlowTexture('rgba(150, 0, 255, 0.5)');
-        const texSolar = createGlowTexture('rgba(255, 200, 0, 0.8)');
-        const texCore = createGlowTexture('rgba(255,255,255,0.8)');
-
-        // --- 2. AUDIO SYNTHESIZER (SOUND EFFECTS) ---
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        function playSound(type) {
-            if(audioCtx.state === 'suspended') audioCtx.resume();
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-
-            if (type === 'FIRE') {
-                osc.type = 'triangle';
-                osc.frequency.setValueAtTime(100, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + 0.5);
-                gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
-                osc.start(); osc.stop(audioCtx.currentTime + 0.5);
-            } else if (type === 'THUNDER') {
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(800, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.2);
-                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
-                osc.start(); osc.stop(audioCtx.currentTime + 0.2);
-            }
-        }
-
-        // --- 3. THREE.JS ENGINE ---
+        // --- CONFIG ---
+        let isGameActive = false;
+        
+        // --- 1. THREE.JS SETUP ---
         const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x050505, 0.02);
+        // Fog dikurangi biar musuh kelihatan dari jauh
+        scene.fog = new THREE.FogExp2(0x000000, 0.015); 
 
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 1, 6);
+        camera.position.set(0, 1, 5);
 
         const renderer = new THREE.WebGLRenderer({ antialias: false });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMapping = THREE.ReinhardToneMapping;
         document.body.appendChild(renderer.domElement);
 
-        // BLOOM POST-PROCESSING (KUNCI VISUAL BAGUS)
+        // BLOOM (GLOW EFFECT)
         const composer = new THREE.EffectComposer(renderer);
         composer.addPass(new THREE.RenderPass(scene, camera));
         const bloom = new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
-        bloom.strength = 2.5; // Glow intensity tinggi
-        bloom.radius = 0.5;
-        bloom.threshold = 0;
+        bloom.strength = 1.8; bloom.radius = 0.5; bloom.threshold = 0;
         composer.addPass(bloom);
 
-        // GRID & LIGHT
-        const grid = new THREE.GridHelper(100, 40, 0x333333, 0x000000);
+        // LIGHTING
+        scene.add(new THREE.AmbientLight(0x404040)); // Cahaya dasar biar ga hitam pekat
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
+        dirLight.position.set(0, 10, 0);
+        scene.add(dirLight);
+
+        // LANTAI GRID
+        const grid = new THREE.GridHelper(200, 50, 0x555555, 0x111111);
         grid.position.y = -2;
         scene.add(grid);
-        scene.add(new THREE.AmbientLight(0x222222));
 
-        // --- 4. GAME OBJECTS ---
+        // --- 2. GAME VARIABLES ---
         let handPos = new THREE.Vector3(0,0,3);
         let gesture = 'NONE';
         let projectiles = [];
-        let particles = [];
         let enemies = [];
-        let isRunning = false;
         let frameCount = 0;
         let shakeIntensity = 0;
 
-        // Visual Tangan (Energy Core)
-        const handOrb = new THREE.Sprite(new THREE.SpriteMaterial({ map: texCore, color: 0xffffff }));
-        handOrb.scale.set(0.5, 0.5, 1);
+        // Visual Tangan (Orb)
+        const handOrb = new THREE.Mesh(
+            new THREE.SphereGeometry(0.2, 16, 16),
+            new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true })
+        );
         scene.add(handOrb);
 
-        // --- 5. PARTICLE SYSTEM (PHYSICS BASED) ---
-        class Particle {
-            constructor(pos, type) {
-                this.type = type;
-                let mat, color, size;
-                
-                if (type === 'FIRE') { mat = texFire; color = 0xffaa00; size = Math.random()*0.8+0.5; }
-                if (type === 'ICE') { mat = texIce; color = 0x00ffff; size = Math.random()*0.4+0.2; }
-                if (type === 'VOID') { mat = texVoid; color = 0xaa00ff; size = Math.random()*0.6+0.4; }
-                if (type === 'SOLAR') { mat = texSolar; color = 0xffcc00; size = Math.random()*1.0+0.5; }
-                if (type === 'EXPLOSION') { mat = texCore; color = 0xffffff; size = 1.0; }
+        // --- 3. CLASSES ---
 
-                this.sprite = new THREE.Sprite(new THREE.SpriteMaterial({
-                    map: mat, color: color, blending: THREE.AdditiveBlending, transparent: true
-                }));
-                this.sprite.position.copy(pos);
-                this.sprite.scale.set(size, size, 1);
-                
-                // Physics Init
-                this.vel = new THREE.Vector3((Math.random()-0.5), (Math.random()-0.5), (Math.random()-0.5));
-                if (type === 'FIRE') this.vel.multiplyScalar(0.2).y += 0.05; // Api naik
-                if (type === 'ICE') this.vel.multiplyScalar(0.3).y -= 0.05; // Es jatuh
-                if (type === 'EXPLOSION') this.vel.multiplyScalar(0.5); 
-                if (type === 'SOLAR') this.vel.multiplyScalar(0.1);
-
-                this.life = 1.0;
-                this.decay = 0.02 + Math.random()*0.03;
-                scene.add(this.sprite);
-            }
-
-            update() {
-                this.life -= this.decay;
-                this.sprite.position.add(this.vel);
-                this.sprite.material.opacity = this.life;
-                this.sprite.scale.multiplyScalar(0.95); // Shrink
-                
-                if (this.type === 'FIRE') {
-                    this.sprite.material.rotation += 0.1; // Api berputar dikit
-                    this.sprite.material.color.setHSL(0.05 + this.life*0.1, 1, 0.5); // Merah ke Kuning
-                }
-
-                if (this.life <= 0) { scene.remove(this.sprite); return false; }
-                return true;
-            }
-        }
-
-        // --- 6. SKILL & ENEMY CLASSES ---
         class Projectile {
             constructor(type, pos) {
                 this.type = type;
                 this.active = true;
                 this.pos = pos.clone();
-                this.vel = new THREE.Vector3(0,0,-0.8); // Default speed
+                this.vel = new THREE.Vector3(0, 0, -0.8); // Maju ke depan
 
-                // Visual Core Mesh (Biar keliatan solid)
-                if (type === 'FIRE') {
-                    this.mesh = new THREE.Mesh(new THREE.SphereGeometry(0.5,8,8), new THREE.MeshBasicMaterial({color:0xffaa00}));
-                    this.vel.z = -1.0; // Cepat
-                } 
-                else if (type === 'ICE') {
-                    this.mesh = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.8, 4), new THREE.MeshBasicMaterial({color:0x00ffff}));
-                    this.mesh.rotation.x = -Math.PI/2;
+                let color = 0xffffff;
+                let size = 1;
+
+                if (type === 'FIRE') { color = 0xff5500; size = 1.5; }
+                if (type === 'ICE') { 
+                    color = 0x00ffff; size = 0.5; 
                     this.vel.x = (Math.random()-0.5)*0.5; // Spread
                     this.vel.y = (Math.random()-0.5)*0.5;
                 }
-                else if (type === 'VOID') {
-                    this.mesh = new THREE.Mesh(new THREE.SphereGeometry(1.5,16,16), new THREE.MeshBasicMaterial({color:0x000000}));
-                    const rim = new THREE.Mesh(new THREE.SphereGeometry(1.6,16,16), new THREE.MeshBasicMaterial({color:0xaa00ff, wireframe:true, transparent:true, opacity:0.5}));
-                    this.mesh.add(rim);
-                    this.vel.z = -0.3; // Lambat
-                }
+                if (type === 'VOID') { color = 0xaa00ff; size = 2.0; this.vel.z = -0.3; }
 
+                // Visual Simple Glowing Sphere
+                const geo = new THREE.SphereGeometry(size, 8, 8);
+                const mat = new THREE.MeshBasicMaterial({ color: color });
+                this.mesh = new THREE.Mesh(geo, mat);
                 this.mesh.position.copy(this.pos);
                 scene.add(this.mesh);
+
+                // Light attached to projectile
+                this.light = new THREE.PointLight(color, 1, 10);
+                this.mesh.add(this.light);
             }
 
             update() {
                 this.pos.add(this.vel);
                 this.mesh.position.copy(this.pos);
-
-                // Trail Particles (Ekor partikel)
-                if (this.type === 'FIRE') {
-                    for(let i=0; i<2; i++) particles.push(new Particle(this.pos, 'FIRE'));
-                }
-                if (this.type === 'VOID') {
+                
+                // Putar-putar untuk void
+                if(this.type === 'VOID') {
                     this.mesh.rotation.z += 0.1;
-                    // Sedot Musuh
+                    // Logic hisap musuh
                     enemies.forEach(e => {
-                        if(e.mesh.position.distanceTo(this.pos) < 10) {
-                            const dir = new THREE.Vector3().subVectors(this.pos, e.mesh.position).normalize();
-                            e.mesh.position.add(dir.multiplyScalar(0.4));
-                            e.mesh.rotation.x += 0.2;
+                        if(e.mesh.position.distanceTo(this.pos) < 8) {
+                            e.mesh.position.lerp(this.pos, 0.05);
                         }
                     });
                 }
 
-                if (this.pos.z < -100) this.kill();
+                if(this.pos.z < -100) this.kill();
             }
-            kill() { this.active = false; scene.remove(this.mesh); }
+
+            kill() {
+                this.active = false;
+                scene.remove(this.mesh);
+            }
         }
 
         class Enemy {
             constructor() {
-                // High Visibility Neon Material
-                const geo = new THREE.IcosahedronGeometry(1.2, 0);
-                const mat = new THREE.MeshBasicMaterial({ color: 0xff0000, wireframe: true });
-                const coreMat = new THREE.MeshBasicMaterial({ color: 0x550000 });
+                // MATERIAL MUSUH YANG PASTI KELIHATAN (EMISSIVE + WIREFRAME)
+                const geo = new THREE.IcosahedronGeometry(1, 0);
+                const mat = new THREE.MeshBasicMaterial({ 
+                    color: 0xff0000, // Merah terang
+                    wireframe: true  // Mode jaring-jaring biar kelihatan sci-fi
+                });
+                
+                // Tambahkan inti biar solid (biar ga tembus pandang banget)
+                const coreGeo = new THREE.IcosahedronGeometry(0.8, 0);
+                const coreMat = new THREE.MeshBasicMaterial({ color: 0x330000 });
                 
                 this.mesh = new THREE.Group();
-                this.mesh.add(new THREE.Mesh(geo, mat));
-                this.mesh.add(new THREE.Mesh(new THREE.IcosahedronGeometry(1,0), coreMat));
+                const wireframe = new THREE.Mesh(geo, mat);
+                const core = new THREE.Mesh(coreGeo, coreMat);
+                
+                this.mesh.add(core);
+                this.mesh.add(wireframe);
 
-                this.mesh.position.set((Math.random()-0.5)*30, (Math.random()-0.5)*10, -60);
+                // Spawn agak dekat (-50) jangan -100 kejauhan
+                this.mesh.position.set(
+                    (Math.random()-0.5) * 30,
+                    (Math.random()-0.5) * 10,
+                    -50 
+                );
+                
                 scene.add(this.mesh);
-                this.speed = 0.1 + Math.random()*0.2;
+                this.speed = 0.15 + Math.random() * 0.1;
             }
+
             update() {
                 this.mesh.position.z += this.speed;
-                this.mesh.rotation.y += 0.05;
-                if(this.mesh.position.z > 2) { shakeCamera(0.5); this.kill(); }
+                this.mesh.rotation.x += 0.02;
+                this.mesh.rotation.y += 0.02;
+
+                if (this.mesh.position.z > 2) {
+                    // Kena Player
+                    shakeCamera(0.5);
+                    this.kill();
+                }
             }
+
             hit() {
-                // Ledakan Partikel
-                for(let i=0; i<15; i++) particles.push(new Particle(this.mesh.position, 'EXPLOSION'));
+                // Efek partikel sederhana pas mati
                 this.kill();
             }
-            kill() { scene.remove(this.mesh); enemies.splice(enemies.indexOf(this), 1); }
+
+            kill() {
+                scene.remove(this.mesh);
+                enemies.splice(enemies.indexOf(this), 1);
+            }
         }
 
-        // --- 7. SKILL LOGIC ---
-        function fireSkill() {
-            if (!isRunning) return;
+        // --- 4. GAME LOGIC ---
 
-            // 1. FIRE (KEPALAN) - Stream rapi
-            if (gesture === 'FIST' && frameCount % 5 === 0) {
+        function fireSkill() {
+            if (gesture === 'FIST' && frameCount % 8 === 0) { // FIRE
                 projectiles.push(new Projectile('FIRE', handPos));
-                shakeCamera(0.05);
-                playSound('FIRE');
-            }
-            // 2. ICE (BUKA TANGAN) - Shotgun
-            else if (gesture === 'OPEN' && frameCount % 20 === 0) {
-                for(let i=0; i<5; i++) projectiles.push(new Projectile('ICE', handPos));
                 shakeCamera(0.1);
             }
-            // 3. THUNDER (TELUNJUK) - Instant Beam
-            else if (gesture === 'INDEX') {
-                castLightning();
+            else if (gesture === 'OPEN' && frameCount % 15 === 0) { // ICE
+                for(let i=0; i<3; i++) projectiles.push(new Projectile('ICE', handPos));
+                shakeCamera(0.1);
             }
-            // 4. VOID (PEACE) - Orb
-            else if (gesture === 'VICTORY' && frameCount % 50 === 0) {
+            else if (gesture === 'VICTORY' && frameCount % 40 === 0) { // VOID
                 projectiles.push(new Projectile('VOID', handPos));
-                shakeCamera(0.3);
             }
-            // 5. SOLAR (ROCK) - Giant Laser
-            else if (gesture === 'ROCK') {
-                castSolarBeam();
+            else if (gesture === 'INDEX') { // THUNDER (Instant)
+                castRay(0xaa00ff);
+            }
+            else if (gesture === 'ROCK') { // SOLAR (Instant)
+                castRay(0xffdd00);
             }
         }
 
-        function castLightning() {
-            // Garis Zigzag Random
-            const points = [];
-            let curr = handPos.clone();
-            const target = new THREE.Vector3(0,0,-50);
-            const steps = 10;
-            
-            for(let i=0; i<=steps; i++) {
-                points.push(curr.clone());
-                curr.lerp(target, 1/steps);
-                curr.x += (Math.random()-0.5)*2;
-                curr.y += (Math.random()-0.5)*2;
-            }
-            
+        function castRay(color) {
+            // Visual Beam
+            const points = [handPos, new THREE.Vector3(0,0,-50)];
             const geo = new THREE.BufferGeometry().setFromPoints(points);
-            const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0xaa00ff }));
+            const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: color }));
             scene.add(line);
-            setTimeout(()=>scene.remove(line), 50);
-            
-            // Hit Enemy di tengah
-            enemies.forEach(e => { if(Math.abs(e.mesh.position.x) < 5) e.hit(); });
-            
-            if(frameCount % 10 === 0) playSound('THUNDER');
-            shakeCamera(0.1);
-        }
-
-        function castSolarBeam() {
-            // Silinder Kuning Besar
-            if(!window.solarBeam) {
-                const geo = new THREE.CylinderGeometry(0.5, 2, 50, 8, 1, true);
-                geo.rotateX(-Math.PI/2);
-                geo.translate(0, 0, -25);
-                const mat = new THREE.MeshBasicMaterial({ color: 0xffcc00, transparent: true, opacity: 0.5, side: THREE.DoubleSide });
-                window.solarBeam = new THREE.Mesh(geo, mat);
-                scene.add(window.solarBeam);
-            }
-            
-            window.solarBeam.position.copy(handPos);
-            window.solarBeam.visible = true;
-            window.solarBeam.material.opacity = 0.5 + Math.sin(frameCount*0.5)*0.2; // Pulsing
-            
-            // Partikel di sekitar beam
-            particles.push(new Particle(handPos, 'SOLAR'));
-            
-            // Hit Logic
-            enemies.forEach(e => {
-                if(Math.abs(e.mesh.position.x - handPos.x) < 2) e.hit();
-            });
+            setTimeout(() => scene.remove(line), 30);
             shakeCamera(0.05);
+
+            // Kill Logic (Sangat sederhana: musuh di tengah layar mati)
+            enemies.forEach(e => {
+                if (Math.abs(e.mesh.position.x) < 5 && Math.abs(e.mesh.position.y) < 5) {
+                    e.hit();
+                }
+            });
         }
 
         function shakeCamera(amount) { shakeIntensity = amount; }
 
-        // --- 8. SYSTEM INIT (MEDIA PIPE) ---
-        async function initSystem() {
-            const btn = document.getElementById('btn-start');
-            btn.innerText = "LOADING AI...";
-            
-            const videoElement = document.getElementById('input_video');
-            const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
-            
-            hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
-            hands.onResults(onResults);
+        // --- 5. CAMERA & MEDIAPIPE SETUP (CRITICAL FIX) ---
+
+        async function startGame() {
+            const btn = document.getElementById('start-btn');
+            const msg = document.getElementById('error-msg');
+            btn.innerText = "MEMUAT SISTEM...";
+            btn.disabled = true;
 
             try {
-                const cameraUtils = new Camera(videoElement, {
-                    onFrame: async () => { await hands.send({image: videoElement}); },
-                    width: 640, height: 480
-                });
-                await cameraUtils.start();
+                // Minta izin kamera secara eksplisit
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
                 
-                // Hide Overlay
-                document.getElementById('start-overlay').style.display = 'none';
-                isRunning = true;
+                // Jika berhasil, matikan stream (MediaPipe akan membukanya sendiri atau pakai stream ini)
+                // Kita setup MediaPipe sekarang
+                setupMediaPipe();
+                
+                // Hide start screen
+                document.getElementById('start-screen').style.display = 'none';
+                isGameActive = true;
                 animate();
-            } catch (e) {
-                alert("Error Camera: Pastikan buka di Live Server / HTTPS!");
+
+            } catch (err) {
+                console.error(err);
+                btn.innerText = "GAGAL AKSES KAMERA";
+                msg.style.display = 'block';
+                msg.innerText = "Error: Browser memblokir kamera. Pastikan klik 'Allow' atau buka di localhost/https.";
+                btn.disabled = false;
             }
         }
 
+        function setupMediaPipe() {
+            const videoElement = document.getElementById('input_video');
+            const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+            
+            hands.setOptions({
+                maxNumHands: 1,
+                modelComplexity: 1,
+                minDetectionConfidence: 0.6,
+                minTrackingConfidence: 0.6
+            });
+
+            hands.onResults(onResults);
+
+            const cameraUtils = new Camera(videoElement, {
+                onFrame: async () => { await hands.send({image: videoElement}); },
+                width: 640, height: 480
+            });
+            cameraUtils.start();
+        }
+
+        // GESTURE RECOGNITION LOGIC
         function onResults(results) {
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
                 const lm = results.multiHandLandmarks[0];
-                // Map coordinates
-                handPos.set((1 - lm[9].x - 0.5) * 15, (1 - lm[9].y - 0.5) * 10, 2);
+                
+                // Convert hand position
+                handPos.set( (1 - lm[9].x - 0.5) * 15, (1 - lm[9].y - 0.5) * 10, 2 );
                 handOrb.position.copy(handPos);
 
-                // Gesture Logic
+                // Simple Gesture Logic
+                const thumbUp = lm[4].x < lm[3].x;
                 const indexUp = lm[8].y < lm[6].y;
                 const midUp = lm[12].y < lm[10].y;
                 const ringUp = lm[16].y < lm[14].y;
                 const pinkyUp = lm[20].y < lm[18].y;
-                let f = 0; if(indexUp)f++; if(midUp)f++; if(ringUp)f++; if(pinkyUp)f++;
 
-                if(f==0) gesture = 'FIST';
-                else if(f>=4) gesture = 'OPEN';
-                else if(indexUp && !midUp) gesture = 'INDEX';
-                else if(indexUp && midUp && !ringUp) gesture = 'VICTORY';
-                else if(indexUp && pinkyUp) gesture = 'ROCK';
+                let fingers = 0;
+                if(indexUp) fingers++; if(midUp) fingers++; if(ringUp) fingers++; if(pinkyUp) fingers++;
+
+                if (fingers === 0) gesture = 'FIST';
+                else if (fingers >= 4) gesture = 'OPEN';
+                else if (indexUp && !midUp && !ringUp && !pinkyUp) gesture = 'INDEX';
+                else if (indexUp && midUp && !ringUp && !pinkyUp) gesture = 'VICTORY';
+                else if (indexUp && pinkyUp && !midUp && !ringUp) gesture = 'ROCK';
                 else gesture = 'NONE';
+
+                updateUI(gesture);
             } else {
                 gesture = 'NONE';
-                if(window.solarBeam) window.solarBeam.visible = false;
+                updateUI('NONE');
             }
-            updateUI();
         }
 
-        function updateUI() {
-            document.getElementById('gesture-name').innerText = gesture;
-            document.querySelectorAll('.skill-card').forEach(c => c.classList.remove('active'));
-            if(gesture === 'FIST') document.getElementById('card-fire').classList.add('active');
-            if(gesture === 'INDEX') document.getElementById('card-thunder').classList.add('active');
-            if(gesture === 'OPEN') document.getElementById('card-ice').classList.add('active');
-            if(gesture === 'VICTORY') document.getElementById('card-void').classList.add('active');
-            if(gesture === 'ROCK') document.getElementById('card-solar').classList.add('active');
-            
-            if(gesture !== 'ROCK' && window.solarBeam) window.solarBeam.visible = false;
+        function updateUI(g) {
+            document.getElementById('gesture-display').innerText = g;
+            document.querySelectorAll('.icon').forEach(el => el.classList.remove('active'));
+            if(g === 'FIST') document.getElementById('s-fire').classList.add('active');
+            if(g === 'INDEX') document.getElementById('s-thunder').classList.add('active');
+            if(g === 'OPEN') document.getElementById('s-ice').classList.add('active');
+            if(g === 'VICTORY') document.getElementById('s-void').classList.add('active');
+            if(g === 'ROCK') document.getElementById('s-solar').classList.add('active');
         }
 
-        // --- 9. MAIN LOOP ---
+        // --- 6. MAIN LOOP ---
         function animate() {
+            if(!isGameActive) return;
             requestAnimationFrame(animate);
-            if(!isRunning) return;
             frameCount++;
 
-            // Spawn Enemy
+            // Spawn Enemies
             if(Math.random() < 0.04) new Enemy();
 
-            // Run Physics
+            // Run Skill
             fireSkill();
+
+            // Updates
             projectiles.forEach(p => p.update());
-            enemies.forEach(e => e.update());
             
-            // Particle Cleanup
-            for(let i=particles.length-1; i>=0; i--) {
-                if(!particles[i].update()) particles.splice(i, 1);
-            }
-            
-            // Projectile vs Enemy collision
-            projectiles.forEach(p => {
-                if(!p.active) return;
-                enemies.forEach(e => {
-                    if(p.mesh.position.distanceTo(e.mesh.position) < 2) {
-                        e.hit();
+            for(let i=enemies.length-1; i>=0; i--) {
+                enemies[i].update();
+                // Collision
+                projectiles.forEach(p => {
+                    if(p.active && p.mesh.position.distanceTo(enemies[i].mesh.position) < 2.5) {
+                        enemies[i].hit();
                         if(p.type !== 'VOID') p.kill();
                     }
                 });
-            });
+            }
 
             // Camera Shake
             if(shakeIntensity > 0) {
                 camera.position.x = (Math.random()-0.5) * shakeIntensity;
                 camera.position.y = 1 + (Math.random()-0.5) * shakeIntensity;
                 shakeIntensity *= 0.9;
-            } else { camera.position.set(0,1,6); }
+            } else {
+                camera.position.set(0, 1, 5);
+            }
 
             composer.render();
         }
@@ -524,6 +425,7 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
             composer.setSize(window.innerWidth, window.innerHeight);
         });
+
     </script>
 </body>
 </html>
